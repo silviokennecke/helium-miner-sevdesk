@@ -1,7 +1,7 @@
 {
   "name": "helium-miner-sevdesk",
   "version": "0.0.0",
-  "description": "Books helium mining incomes in Sevdesk",
+  "description": "Posts helium mining incomes in Sevdesk",
   "keywords": [
     "helium",
     "crypto-mining",
