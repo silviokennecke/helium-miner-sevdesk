@@ -5,7 +5,7 @@ import { Balance, NetworkTokens, USDollars } from '@helium/currency';
 import axios from 'axios';
 import * as xml2js from 'xml2js';
 import BigNumber from 'bignumber.js';
-import { BookingData, BookingType, CreditDebit, Sevdesk, TaxType, Voucher, VoucherPos, VoucherStatus, VoucherType } from './sevdesk';
+import { BookingData, BookingType, CreditDebit, Sevdesk, TaxType, Voucher, VoucherPos, VoucherStatus, VoucherType } from '../../services/sevdesk';
 
 export default class PostRewards extends Command {
   static summary = 'Posts helium rewards to sevdesk account';
