@@ -5,23 +5,24 @@ import { Balance, NetworkTokens, USDollars } from '@helium/currency';
 import axios from 'axios';
 import * as xml2js from 'xml2js';
 import BigNumber from 'bignumber.js';
+import { BookingData, BookingType, CreditDebit, Sevdesk, TaxType, Voucher, VoucherPos, VoucherStatus, VoucherType } from './sevdesk';
 
 export default class PostRewards extends Command {
   static summary = 'Posts helium rewards to sevdesk account';
 
   static flags = {
     heliumAccount: Flags.string({description: 'Helium account id', required: true}),
-    sevdeskApiToken: Flags.string({description: 'Sevdesk API Token', required: false}),
-    sevdeskCustomer: Flags.string({description: 'Sevdesk Customer Number', required: false}),
-    sevdeskAccount: Flags.string({description: 'Sevdesk Account Number', required: false}),
-    sevdeskCostCentre: Flags.string({description: 'Sevdesk Cost Centre Number', required: false}),
+    sevdeskApiToken: Flags.string({description: 'Sevdesk API Token', required: true}),
+    sevdeskAccount: Flags.integer({description: 'Sevdesk Booking Account ID', required: true}),
+    sevdeskCheckAccount: Flags.integer({description: 'Sevdesk Check Account ID', required: true}),
+    sevdeskCostCentre: Flags.integer({description: 'Sevdesk Cost Centre ID', required: false}),
     date: Flags.string({description: 'The date to import the transactions for', required: true}),
   };
 
   async run(): Promise<void> {
     const {flags} = await this.parse(PostRewards);
 
-    this.log(`importing mining rewards from ${flags.date}`);
+    this.log(`Importing mining rewards from ${flags.date} for account ${flags.heliumAccount}`);
 
     BigNumber.config({ DECIMAL_PLACES: 10 });
 
@@ -31,12 +32,88 @@ export default class PostRewards extends Command {
 
     const logNumberFormat = {decimalSeparator: ',', groupSeparator: '.', suffix: '€'};
 
+    this.log('The following transactions were found:');
     let sum = new BigNumber(0);
     for (const transaction of transactions) {
       sum = sum.plus(transaction.euroPrice as BigNumber);
 
       this.log(`[${transaction.timestamp}] ${transaction.hash}: HNT ${transaction.amount.bigBalance.toString()} | value ${transaction.euroPrice?.toFormat(2, logNumberFormat)} | sum ${sum.decimalPlaces(2).toFormat(2, logNumberFormat)}`);
     }
+
+    this.log('Adding transactions to sevdesk');
+    this.createSevdeskBookings(flags.sevdeskApiToken, transactions, flags.date, flags.heliumAccount, flags.sevdeskAccount, flags.sevdeskCheckAccount, flags.sevdeskCostCentre);
+  }
+
+  /**
+   * Creates sevdesk bookings from the transactions
+   * @param transactions 
+   * @param date 
+   */
+  async createSevdeskBookings(apiKey: string, transactions: Reward[], date: string, heliumAccountId: string, bookingAccountingId: number, checkAccountId: number, costCentreId?: number): Promise<void> {
+    const sevdesk = new Sevdesk(apiKey);
+    const documentDescription = `Helium Mining Rewards on ${date} for account ${heliumAccountId}`;
+
+    // check for duplicates
+    const existingVouchers = await sevdesk.getVoucher(documentDescription, date);
+    if (existingVouchers.objects.length > 0) {
+      this.warn(`Transactions were already created for account ${heliumAccountId} and date ${date}.`);
+      return;
+    }
+
+    // create voucher
+    const voucher: Voucher = {
+      objectName: 'Voucher',
+      voucherDate: date,
+      supplierName: 'Helium Mining',
+      description: documentDescription,
+      status: VoucherStatus.Paid,
+      deliveryDate: date,
+      voucherType: VoucherType.Normal,
+      creditDebit: CreditDebit.Debit,
+      supplier: null,
+      costCentre: !costCentreId ? null : {
+        id: costCentreId,
+        objectName: 'CostCentre',
+      },
+      taxType: TaxType.Default,
+      document: null,
+      payDate: null,
+      mapAll: true,
+    };
+
+    const voucherPos: VoucherPos[] = [];
+    for (const transaction of transactions) {
+      voucherPos.push({
+        objectName: 'VoucherPos',
+        accountingType: {
+          id: bookingAccountingId,
+          objectName: 'AccountingType',
+        },
+        taxRate: 0,
+        net: true,
+        sumNet: transaction.euroPrice?.decimalPlaces(2).toNumber() || 0.0,
+        sumGross: null,
+        comment: `Mining Reward of ${transaction.amount.bigBalance.toNumber()} HNT at ${transaction.timestamp} (transaction hash ${transaction.hash})`,
+        mapAll: true,
+      });
+    }
+
+    const voucherResult = await sevdesk.createVoucher({voucher: voucher, voucherPosSave: voucherPos});
+    const savedVoucher = voucherResult.objects.voucher;
+
+    // book payment
+    const booking: BookingData = {
+        amount: savedVoucher.sumNet || 0,
+        date: date,
+        type: BookingType.Normal,
+        checkAccount: {
+          id: checkAccountId,
+          objectName: 'CheckAccount',
+        },
+        checkAccountTransaction: null,
+        createFeed: false,
+    };
+    await sevdesk.bookVoucher(savedVoucher.id!, booking);
   }
 
   /**
