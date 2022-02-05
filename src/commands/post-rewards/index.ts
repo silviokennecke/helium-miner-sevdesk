@@ -138,7 +138,7 @@ export default class PostRewards extends Command {
           objectName: 'CheckAccount',
         },
         checkAccountTransaction: null,
-        createFeed: false,
+        createFeed: true,
     };
     await sevdesk.bookVoucher(savedVoucher.id!, booking);
   }
