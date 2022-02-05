@@ -1,6 +1,6 @@
 {
   "name": "helium-miner-sevdesk",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Posts helium mining incomes in Sevdesk",
   "keywords": [
     "helium",
@@ -13,7 +13,7 @@
     "helium-miner-sevdesk": "./bin/run"
   },
   "homepage": "https://github.com/silviokennecke/helium-miner-sevdesk",
-  "license": "GPL",
+  "license": "GPLv3",
   "main": "dist/index.js",
   "repository": "silviokennecke/helium-miner-sevdesk",
   "files": [
@@ -65,8 +65,8 @@
     ],
     "topicSeparator": " ",
     "topics": {
-      "hello": {
-        "description": "Say hello to the world and others"
+      "post-rewards": {
+        "description": "Post rewards to Sevdesk"
       }
     }
   },
