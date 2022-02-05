@@ -18,7 +18,7 @@ $ npm install -g helium-miner-sevdesk
 $ helium-miner-sevdesk COMMAND
 running command...
 $ helium-miner-sevdesk (--version)
-helium-miner-sevdesk/0.0.2 darwin-arm64 node-v17.4.0
+helium-miner-sevdesk/0.0.3 darwin-arm64 node-v17.4.0
 $ helium-miner-sevdesk --help [COMMAND]
 USAGE
   $ helium-miner-sevdesk COMMAND
