@@ -9,8 +9,8 @@ export class Sevdesk {
     protected async request(method: 'GET'|'POST'|'PUT'|'DELETE', path: string, payload?: any): Promise<any> {
         const result = await axios.request({
             method: method,
-            url: 'https://my.sevdesk.de/api/v1' + path,
-            data: method === 'GET' ? qs.stringify(payload) : payload,
+            url: 'https://my.sevdesk.de/api/v1' + path + (method === 'GET' ? '?' + qs.stringify(payload) : ''),
+            data: method === 'GET' ? '' : payload,
             headers: {
                 'Authorization': this.apiKey,
                 ...(method === 'GET' ? {} : {'content-type': 'application/json'}),
@@ -20,11 +20,9 @@ export class Sevdesk {
         return result.data;
     }
 
-    async getVoucher(description: string, date: string): Promise<ApiResponse<Voucher[]>> {
+    async getVoucher(description: string): Promise<ApiResponse<Voucher[]>> {
         return await this.request('GET', '/Voucher', {
             descriptionLike: description,
-            startDate: date,
-            endDate: date,
         });
     }
 

@@ -3,7 +3,6 @@ import {Client} from '@helium/http';
 import * as moment from 'moment';
 import { Balance, NetworkTokens, USDollars } from '@helium/currency';
 import axios from 'axios';
-import * as xml2js from 'xml2js';
 import BigNumber from 'bignumber.js';
 import { BookingData, BookingType, CreditDebit, Sevdesk, TaxType, Voucher, VoucherPos, VoucherStatus, VoucherType } from '../../services/sevdesk';
 
@@ -30,14 +29,15 @@ export default class PostRewards extends Command {
     const transactions = await this.fetchHeliumTransactions(flags.heliumAccount, flags.date);
     this.calculateCurrencyValues(transactions, exchangeRate);
 
-    const logNumberFormat = {decimalSeparator: ',', groupSeparator: '.', suffix: '€'};
+    const hntFormat = {decimalSeparator: '.', groupSeparator: ',', prefix: 'HNT '};
+    const euroFormat = {decimalSeparator: '.', groupSeparator: ',', suffix: '€'};
 
     this.log('The following transactions were found:');
     let sum = new BigNumber(0);
     for (const transaction of transactions) {
       sum = sum.plus(transaction.euroPrice as BigNumber);
 
-      this.log(`[${transaction.timestamp}] ${transaction.hash}: HNT ${transaction.amount.bigBalance.toString()} | value ${transaction.euroPrice?.toFormat(2, logNumberFormat)} | sum ${sum.decimalPlaces(2).toFormat(2, logNumberFormat)}`);
+      this.log(`[${transaction.timestamp}] ${transaction.hash}: ${transaction.amount.bigBalance.toFormat(8, hntFormat)} | value ${transaction.euroPrice?.toFormat(2, euroFormat)} | sum ${sum.decimalPlaces(2).toFormat(2, euroFormat)}`);
     }
 
     this.log('Adding transactions to sevdesk');
@@ -56,9 +56,9 @@ export default class PostRewards extends Command {
     const documentDescription = `Helium Mining Rewards on ${date} for account ${heliumAccountId}`;
 
     // check for duplicates
-    const existingVouchers = await sevdesk.getVoucher(documentDescription, date);
+    const existingVouchers = await sevdesk.getVoucher(documentDescription);
     if (existingVouchers.objects.length > 0) {
-      this.warn(`Transactions were already created for account ${heliumAccountId} and date ${date}.`);
+      this.warn(`Transactions were already created for account ${heliumAccountId} and date ${date} (sevdeskVoucherId ${existingVouchers.objects[0].id}).`);
       return;
     }
 
@@ -68,7 +68,7 @@ export default class PostRewards extends Command {
       voucherDate: date,
       supplierName: 'Helium Mining',
       description: documentDescription,
-      status: VoucherStatus.Paid,
+      status: VoucherStatus.Draft,
       deliveryDate: date,
       voucherType: VoucherType.Normal,
       creditDebit: CreditDebit.Debit,
@@ -121,7 +121,7 @@ export default class PostRewards extends Command {
   /**
    * Enriches the transactions with USD and EUR values
    * @param transactions 
-   * @param euroExchangeRate 
+   * @param euroExchangeRate
    */
   calculateCurrencyValues(transactions: Reward[], euroExchangeRate: ExchangeRate): void {
     for (const transaction of transactions) {
@@ -159,29 +159,18 @@ export default class PostRewards extends Command {
   }
 
   /**
-   * Fetches the USD/EUR exchange rate from ECB
+   * Fetches the USD/EUR exchange rate from TheForexAPI
    * @param date 
    * @returns 
    */
   async fetchExchangeRate(date: string): Promise<ExchangeRate> {
-    const result = await axios.get(
-      `https://sdw-wsrest.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?startPeriod=${date}&endPeriod=${date}&format=structurespecificdata`,
-      {
-        headers: {
-          'Accept': 'text/plain',
-        },
-      }
-    );
-
-    const xml = await xml2js.parseStringPromise(result.data);
-    const payloadSeries = xml['message:StructureSpecificData']['message:DataSet'][0]['Series'][0];
-    const payloadObs = payloadSeries.Obs[0]['$'];
+    const result = await axios.get(`https://theforexapi.com/api/${date}/?base=EUR&symbols=USD`);
 
     return {
-      fromCurrency: payloadSeries['$'].CURRENCY,
-      toCurrency: payloadSeries['$'].CURRENCY_DENOM,
-      timePeriod: payloadObs.TIME_PERIOD,
-      rate: new BigNumber(payloadObs.OBS_VALUE),
+      fromCurrency: 'USD',
+      toCurrency: 'EUR',
+      timePeriod: date,
+      rate: new BigNumber(result.data.rates.USD),
     };
   }
 }

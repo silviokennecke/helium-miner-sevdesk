@@ -31,8 +31,7 @@
     "bignumber.js": "^9.0.2",
     "fs-extra": "^10.0.0",
     "moment": "^2.29.1",
-    "qs": "^6.10.3",
-    "xml2js": "^0.4.23"
+    "qs": "^6.10.3"
   },
   "devDependencies": {
     "@oclif/test": "^2",
@@ -42,7 +41,6 @@
     "@types/moment": "^2.13.0",
     "@types/node": "^16.9.4",
     "@types/qs": "^6.9.7",
-    "@types/xml2js": "^0.4.9",
     "chai": "^4",
     "eslint": "^7.32.0",
     "eslint-config-oclif": "^4",
