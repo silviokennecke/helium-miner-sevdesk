@@ -15,12 +15,36 @@ export default class PostRewards extends Command {
     sevdeskAccount: Flags.integer({description: 'Sevdesk Booking Account ID', required: true}),
     sevdeskCheckAccount: Flags.integer({description: 'Sevdesk Check Account ID', required: true}),
     sevdeskCostCentre: Flags.integer({description: 'Sevdesk Cost Centre ID', required: false}),
-    date: Flags.string({description: 'The date to import the transactions for', required: true}),
+    date: Flags.string({description: 'The date to import the transactions for', required: false}),
+    lastWeek: Flags.boolean({description: 'Imports all transactions of the last 7 days', required: false}),
   };
 
   async run(): Promise<void> {
     const {flags} = await this.parse(PostRewards);
 
+    const dates = [];
+    if (flags.lastWeek) {
+      this.log('Importing transactions from the last 7 days.\n');
+
+      for (let i=1; i <= 7; i++) {
+        dates.push(moment().utc().subtract(i, 'day').format('YYYY-MM-DD'));
+      }
+
+      dates.reverse();
+    } else if (flags.date) {
+      dates.push(flags.date);
+    } else {
+      this.warn('Either --date or --lastWeek need to be set.');
+      process.exit(1);
+    }
+
+    for (const date of dates) {
+      flags.date = date;
+      await this.runImport(flags);
+    }
+  }
+
+  async runImport(flags: any): Promise<void> {
     this.log(`Importing mining rewards from ${flags.date} for account ${flags.heliumAccount}`);
 
     BigNumber.config({ DECIMAL_PLACES: 10 });
@@ -39,11 +63,12 @@ export default class PostRewards extends Command {
 
       this.log(`[${transaction.timestamp}] ${transaction.hash}: ${transaction.amount.bigBalance.toFormat(8, hntFormat)} | value ${transaction.euroPrice?.toFormat(2, euroFormat)} | sum ${sum.decimalPlaces(2).toFormat(2, euroFormat)}`);
     }
+    this.log('\n');
 
-    this.log('Adding transactions to sevdesk');
+    this.log('Adding transactions to Sevdesk.\n');
     this.createSevdeskBookings(flags.sevdeskApiToken, transactions, flags.date, flags.heliumAccount, flags.sevdeskAccount, flags.sevdeskCheckAccount, flags.sevdeskCostCentre);
 
-    this.log('Import complete.');
+    this.log('Import complete.\n');
   }
 
   /**
@@ -139,8 +164,8 @@ export default class PostRewards extends Command {
   async fetchHeliumTransactions(heliumAccount: string, fetchDate: string): Promise<Reward[]> {
     const client = new Client();
 
-    const fromDate = moment(fetchDate).startOf('day');
-    const toDate = moment(fetchDate).endOf('day');
+    const fromDate = moment(fetchDate).startOf('day').utc();
+    const toDate = moment(fetchDate).endOf('day').utc();
     
     const rewardObjects: Reward[] = [];
     for await (const reward of await client.accounts.fromAddress(heliumAccount).rewards.list({minTime: fromDate.toDate(), maxTime: toDate.toDate()})) {
