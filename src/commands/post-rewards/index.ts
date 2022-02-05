@@ -42,6 +42,8 @@ export default class PostRewards extends Command {
 
     this.log('Adding transactions to sevdesk');
     this.createSevdeskBookings(flags.sevdeskApiToken, transactions, flags.date, flags.heliumAccount, flags.sevdeskAccount, flags.sevdeskCheckAccount, flags.sevdeskCostCentre);
+
+    this.log('Import complete.');
   }
 
   /**
