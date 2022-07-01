@@ -31,7 +31,7 @@
     "bignumber.js": "^9.0.2",
     "fs-extra": "^10.0.0",
     "moment": "^2.29.1",
-    "qs": "^6.10.3"
+    "qs": "^6.11.0"
   },
   "devDependencies": {
     "@oclif/test": "^2",
